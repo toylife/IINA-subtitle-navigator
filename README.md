@@ -42,9 +42,9 @@ This project is intended to be:
 ### Core Features | 核心功能
 - **Standalone Window** (not sidebar)  
   独立窗口显示，不占用 IINA 侧边栏空间
-- **Select subtitle track** (external subtitles)  
-  选择外挂字幕轨（`.srt`）
-- **Robust SRT parsing**
+- **Select external and embedded subtitle tracks**  
+  支持选择外挂字幕（`.srt`）与内嵌字幕（自动调用 `ffmpeg` 提取并解析 ASS/SRT）
+- **Robust SRT & ASS parsing**
   - Supports `,` and `.` millisecond formats  
   - Handles irregular spacing and BOM  
   - Removes style tags like `{...}`
@@ -139,8 +139,8 @@ You are encouraged to:
 ---
 
 ## ⚠️ Limitations | 已知限制
-- Only `.srt` supported
-- Embedded subtitles not parsed as text
+- Primarily supports `.srt` and `.ass` subtitles.
+- Embedded subtitles require `ffmpeg` installed on the system (e.g., `brew install ffmpeg`).
 - Single subtitle track by design
 
 ---
