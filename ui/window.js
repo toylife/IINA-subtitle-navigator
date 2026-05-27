@@ -25,7 +25,9 @@ function populateSelect() {
   tracks.forEach(t => {
     const op = document.createElement("option");
     op.value = String(t.id);
-    op.textContent = [t.id, t.lang, t.title].filter(Boolean).join(" ").trim();
+    let text = [t.id, t.lang, t.title].filter(Boolean).join(" ").trim();
+    if (t.isEmbedded) text += " (内嵌)";
+    op.textContent = text;
     sel.appendChild(op);
   });
   if (trackId != null) sel.value = String(trackId);

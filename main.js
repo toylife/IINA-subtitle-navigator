@@ -35,7 +35,7 @@ try {
 // Open once on plugin load.
 openWindow();
 function fmtErr(e) {
-  try { return (e && (e.stack || e.message)) ? (e.stack || e.message) : String(e); }
+  try { return (e && e.message) ? e.message : String(e); }
   catch { return String(e); }
 }
 
@@ -72,16 +72,21 @@ function getTrackListRaw() {
       title: t.title || "",
       lang: t.lang || "",
       externalFilename: t["external-filename"] || "",
-      selected: (t.selected === true || t.selected === "yes")
+      selected: (t.selected === true || t.selected === "yes"),
+      ffIndex: t["ff-index"]
     }));
 }
 
-async function buildTrackListSuffixOnly() {
+async function buildTrackList() {
   const raw = getTrackListRaw();
   const out = [];
   for (const t of raw) {
     const p = t.externalFilename;
-    if (p && hasSuffix(p)) out.push({ ...t, path: p });
+    if (p) {
+      if (hasSuffix(p)) out.push({ ...t, path: p, isEmbedded: false });
+    } else {
+      out.push({ ...t, path: "", isEmbedded: true });
+    }
   }
   return out;
 }
@@ -115,6 +120,59 @@ function parseTimeToSeconds(ts) {
   const ms = m[5] ? Number(m[5].padEnd(3, "0")) : 0;
   if (![h, mi, se, ms].every(Number.isFinite)) return NaN;
   return h * 3600 + mi * 60 + se + ms / 1000;
+}
+
+function parseSubtitle(content) {
+  if (content.includes("[Events]") && content.includes("Dialogue:")) {
+    return parseASS(content);
+  }
+  return parseSRT(content);
+}
+
+function parseASS(content) {
+  const lines = String(content).replace(/\r/g, "").split("\n");
+  const out = [];
+  let inEvents = false;
+  let format = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line === "[Events]") {
+      inEvents = true;
+      continue;
+    }
+    if (inEvents && line.startsWith("Format:")) {
+      format = line.substring(7).split(",").map(s => s.trim());
+      continue;
+    }
+    if (inEvents && line.startsWith("Dialogue:")) {
+      let textPart = line.substring(9).trim();
+      const parts = [];
+      let cur = 0;
+      for (let j = 0; j < format.length - 1; j++) {
+        const nextComma = textPart.indexOf(",", cur);
+        if (nextComma < 0) break;
+        parts.push(textPart.substring(cur, nextComma).trim());
+        cur = nextComma + 1;
+      }
+      parts.push(textPart.substring(cur).trim());
+
+      const startIdx = format.indexOf("Start");
+      const endIdx = format.indexOf("End");
+      const textIdx = format.indexOf("Text");
+
+      if (parts.length === format.length && startIdx >= 0 && endIdx >= 0 && textIdx >= 0) {
+        const start = parseTimeToSeconds(parts[startIdx]);
+        const end = parseTimeToSeconds(parts[endIdx]);
+        let text = parts[textIdx].replace(/\{[^}]*\}/g, "").replace(/\\N/gi, "\n").trim();
+        if (Number.isFinite(start) && Number.isFinite(end) && end > start && text) {
+          out.push({ start, end, text });
+        }
+      }
+    }
+  }
+  out.sort((a,b)=>a.start-b.start);
+  return out;
 }
 
 function parseSRT(content) {
@@ -179,7 +237,7 @@ function closestRowIndexByTime(t) {
 }
 
 async function refresh(force=false) {
-  allSubTracks = await buildTrackListSuffixOnly();
+  allSubTracks = await buildTrackList();
 
   if (trackId === null) {
     const selected = allSubTracks.find(t => t.selected);
@@ -193,12 +251,14 @@ async function refresh(force=false) {
 
   if (!trackId) {
     rows = [];
-    post("setRows", { rows: [], meta: { error: "No external subtitle tracks with filename suffix found. Please load external subtitles in IINA." } });
+    post("setRows", { rows: [], meta: { error: "No suitable subtitle tracks found. Please load subtitles in IINA." } });
     return;
   }
 
-  const path = allSubTracks.find(t => t.id === trackId)?.path || "";
-  const stateKey = `${trackId}|${path}`;
+  const track = allSubTracks.find(t => t.id === trackId);
+  const path = track?.path || "";
+  const isEmbedded = track?.isEmbedded || false;
+  const stateKey = `${trackId}|${path}|${isEmbedded}`;
   if (!force && stateKey === lastStateKey && rows.length) {
     post("setRows", { rows, meta: { count: rows.length } });
     return;
@@ -206,9 +266,26 @@ async function refresh(force=false) {
   lastStateKey = stateKey;
 
   try {
-    if (!path.toLowerCase().endsWith(".srt")) throw new Error(`Selected subtitle is not .srt: ${path}`);
-    const text = await readSubtitleTextById(trackId, path);
-    cues = parseSRT(text);
+    let text = "";
+    if (isEmbedded) {
+      const vidPath = mpv.getString("path");
+      if (!vidPath) throw new Error("无法获取当前视频路径以提取字幕。");
+      if (track.ffIndex == null) throw new Error("无法获取该字幕的流索引。");
+      
+      const tmpSrt = "/tmp/iina-subtitle-navigator-ext.srt";
+      await execStdout("/bin/bash", ["-lc", `rm -f ${shQuote(tmpSrt)}`]);
+      const cmd = `/opt/homebrew/bin/ffmpeg -y -hide_banner -loglevel error -i ${shQuote(vidPath)} -map 0:${track.ffIndex} -f srt ${shQuote(tmpSrt)}`;
+      try {
+        await execStdout("/bin/bash", ["-lc", cmd]);
+      } catch (err) {
+        throw new Error("使用 ffmpeg 提取内嵌字幕失败，可能是因为字幕为图片格式或视频路径无效。");
+      }
+      text = await readTextFromPath(tmpSrt);
+    } else {
+      if (!path.toLowerCase().endsWith(".srt")) throw new Error(`Selected external subtitle is not .srt: ${path}`);
+      text = await readSubtitleTextById(trackId, path);
+    }
+    cues = parseSubtitle(text);
     rows = cues.map(c => ({ start: c.start, end: c.end, text: c.text }));
     post("setRows", { rows, meta: { count: rows.length } });
   } catch (e) {
