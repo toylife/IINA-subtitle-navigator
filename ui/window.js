@@ -97,6 +97,11 @@ function render() {
       render();
     });
 
+    item.addEventListener("dblclick", (e) => {
+      e.stopPropagation();
+      copyText(r.text);
+    });
+
     list.appendChild(item);
   });
 }
@@ -231,4 +236,27 @@ iina.postMessage("uiReady", {});
 
 window.addEventListener('beforeunload', () => {
   try { iina.postMessage('windowClosed', {}); } catch (_) { }
+});
+
+window.addEventListener("keydown", (e) => {
+  if (document.activeElement && document.activeElement.tagName === "INPUT") return;
+
+  if (e.code === "Space") {
+    e.preventDefault();
+    iina.postMessage("togglePause", {});
+  } else if (e.code === "ArrowUp") {
+    e.preventDefault();
+    if (currentIdx > 0) {
+      const prev = filtered[currentIdx - 1];
+      if (prev) iina.postMessage("seekTo", { time: prev.start });
+    }
+  } else if (e.code === "ArrowDown") {
+    e.preventDefault();
+    if (currentIdx >= 0 && currentIdx < filtered.length - 1) {
+      const next = filtered[currentIdx + 1];
+      if (next) iina.postMessage("seekTo", { time: next.start });
+    } else if (currentIdx === -1 && filtered.length > 0) {
+      iina.postMessage("seekTo", { time: filtered[0].start });
+    }
+  }
 });

@@ -324,6 +324,15 @@ setInterval(() => {
 
 standaloneWindow.onMessage("windowClosed", () => { uiReady = false; windowLoaded = false; });
 
+standaloneWindow.onMessage("togglePause", () => {
+  try {
+    const p = mpv.getNative("pause");
+    mpv.setNative("pause", !p);
+  } catch (_) {
+    try { mpv.command("cycle", ["pause"]); } catch (_) {}
+  }
+});
+
 standaloneWindow.onMessage("uiReady", () => {
   uiReady = true;
   startTicker();

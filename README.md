@@ -57,6 +57,12 @@ This project is intended to be:
 ### Navigation & Learning | 跳转与学习
 - **Clickable subtitle list**  
   点击字幕即可跳转
+- **Double-click subtitle**  
+  双击字幕直接复制内容
+- **Keyboard Shortcuts**
+  - `Space`: Pause/Play (暂停/播放)
+  - `Up Arrow`: Previous subtitle (上一句字幕并跳转)
+  - `Down Arrow`: Next subtitle (下一句字幕并跳转)
 - **Jump to time (hh:mm:ss)**  
   适配数小时长视频（支持上下调节输入）
 - **Jump to current subtitle**
