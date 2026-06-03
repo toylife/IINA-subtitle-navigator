@@ -54,6 +54,20 @@ function findCurrentIndex() {
   return best;
 }
 
+function updateCurrentClass() {
+  document.querySelectorAll("#list .item").forEach((el, i) => {
+    if (i === currentIdx) el.classList.add("current");
+    else el.classList.remove("current");
+  });
+}
+
+function updateSelectionClass() {
+  document.querySelectorAll("#list .item").forEach((el, i) => {
+    if (selected.has(i)) el.classList.add("selected");
+    else el.classList.remove("selected");
+  });
+}
+
 function render() {
   const list = document.getElementById("list");
   list.innerHTML = "";
@@ -94,7 +108,7 @@ function render() {
 
       const loopOn = document.getElementById("loopToggle").checked;
       if (loopOn) iina.postMessage("loopLine", { enabled: true, start: r.start, end: r.end, text: r.text });
-      render();
+      updateSelectionClass();
     });
 
     item.addEventListener("dblclick", (e) => {
@@ -151,7 +165,7 @@ document.getElementById("track").addEventListener("change", () => {
 document.getElementById("clearSel").addEventListener("click", () => {
   selected.clear();
   lastClicked = null;
-  render();
+  updateSelectionClass();
 });
 
 document.getElementById("copySel").addEventListener("click", async () => {
@@ -262,7 +276,8 @@ iina.onMessage("time", ({ t }) => {
     const idx = findCurrentIndex();
 
     if (idx !== currentIdx) {
-      render();
+      currentIdx = idx;
+      updateCurrentClass();
       const autoScroll = document.getElementById("autoScrollToggle")?.checked;
       if (autoScroll && idx !== -1) {
         scrollToIndex(idx);
@@ -318,15 +333,15 @@ window.addEventListener('beforeunload', () => {
 window.addEventListener("keydown", (e) => {
   if (document.activeElement && document.activeElement.tagName === "INPUT") return;
 
-  if (e.metaKey && e.key === "]") {
+  if (e.metaKey && e.code === "BracketRight") {
     e.preventDefault();
     iina.postMessage("setSpeed", { speed: 2.0 });
     return;
-  } else if (e.metaKey && e.key === "[") {
+  } else if (e.metaKey && e.code === "BracketLeft") {
     e.preventDefault();
     iina.postMessage("setSpeed", { speed: 0.5 });
     return;
-  } else if (e.metaKey && e.key === "\\") {
+  } else if (e.metaKey && e.code === "Backslash") {
     e.preventDefault();
     iina.postMessage("setSpeed", { speed: 1.0 });
     return;
