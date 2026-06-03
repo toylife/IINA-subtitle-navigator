@@ -330,23 +330,32 @@ window.addEventListener('beforeunload', () => {
   try { iina.postMessage('windowClosed', {}); } catch (_) { }
 });
 
-window.addEventListener("keydown", (e) => {
-  if (document.activeElement && document.activeElement.tagName === "INPUT") return;
+function handleSpeedKeys(e, triggerAction) {
+  if (document.activeElement && document.activeElement.tagName === "INPUT") return false;
+  const isRight = e.key === "]" || e.code === "BracketRight" || e.key === "】";
+  const isLeft = e.key === "[" || e.code === "BracketLeft" || e.key === "【";
+  const isSlash = e.key === "\\" || e.code === "Backslash" || e.key === "、";
 
-  const isCmdOrCtrl = e.metaKey || e.ctrlKey;
-  if (isCmdOrCtrl && (e.key === "]" || e.code === "BracketRight" || e.key === "】")) {
-    e.preventDefault();
-    iina.postMessage("setSpeed", { speed: 2.0 });
-    return;
-  } else if (isCmdOrCtrl && (e.key === "[" || e.code === "BracketLeft" || e.key === "【")) {
-    e.preventDefault();
-    iina.postMessage("setSpeed", { speed: 0.5 });
-    return;
-  } else if (isCmdOrCtrl && (e.key === "\\" || e.code === "Backslash" || e.key === "、")) {
-    e.preventDefault();
-    iina.postMessage("setSpeed", { speed: 1.0 });
-    return;
+  if (isRight || isLeft || isSlash) {
+    if (e.type === "keydown") e.preventDefault();
+    if (triggerAction) {
+      if (isRight) iina.postMessage("setSpeed", { speed: 2.0 });
+      else if (isLeft) iina.postMessage("setSpeed", { speed: 0.5 });
+      else if (isSlash) iina.postMessage("setSpeed", { speed: 1.0 });
+    }
+    return true;
   }
+  return false;
+}
+
+window.addEventListener("keyup", (e) => {
+  handleSpeedKeys(e, true);
+});
+
+window.addEventListener("keydown", (e) => {
+  if (handleSpeedKeys(e, false)) return;
+
+  if (document.activeElement && document.activeElement.tagName === "INPUT") return;
 
   if (e.code === "Space") {
     e.preventDefault();

@@ -367,10 +367,15 @@ standaloneWindow.onMessage("togglePause", () => {
 standaloneWindow.onMessage("setSpeed", (data) => {
   const speed = Number(data?.speed);
   if (Number.isFinite(speed)) {
-    try { 
-      mpv.setNumber("speed", speed); 
+    try {
+      mpv.command("set", ["speed", speed.toString()]);
       core.osd(`Speed: ${speed.toFixed(2)}x`);
-    } catch (_) {}
+    } catch (_) {
+      try { 
+        mpv.setNumber("speed", speed); 
+        core.osd(`Speed: ${speed.toFixed(2)}x`);
+      } catch (_) {}
+    }
   }
 });
 
