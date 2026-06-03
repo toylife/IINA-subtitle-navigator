@@ -332,9 +332,13 @@ window.addEventListener('beforeunload', () => {
 
 function handleSpeedKeys(e, triggerAction) {
   if (document.activeElement && document.activeElement.tagName === "INPUT") return false;
+  
+  // 忽略带有 Cmd/Ctrl 的组合键，因为它们可能被系统或 WebKit 拦截
+  if (e.metaKey || e.ctrlKey) return false;
+
   const isRight = e.key === "]" || e.code === "BracketRight" || e.key === "】";
   const isLeft = e.key === "[" || e.code === "BracketLeft" || e.key === "【";
-  const isSlash = e.key === "\\" || e.code === "Backslash" || e.key === "、";
+  const isSlash = e.key === "/" || e.code === "Slash" || e.key === "／" || e.key === "÷";
 
   if (isRight || isLeft || isSlash) {
     if (e.type === "keydown") e.preventDefault();

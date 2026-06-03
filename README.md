@@ -62,9 +62,9 @@ This project is intended to be:
 - **Keyboard Shortcuts**
   - `Space`: Pause/Play (暂停/播放)
   - `Up Arrow / Down Arrow`: Previous/Next subtitle (上一句/下一句字幕并跳转)
-  - `Cmd + ]`: Speed up 2.0x (两倍速)
-  - `Cmd + [`: Slow down 0.5x (半速)
-  - `Cmd + \`: Normal speed 1.0x (原速)
+  - `]`: Speed up 2.0x (两倍速)
+  - `[`: Slow down 0.5x (半速)
+  - `/`: Normal speed 1.0x (原速)
 - **User Profiles & Statistics**
   - Switch users and track independent learning data
   - Automatically records watched movies
