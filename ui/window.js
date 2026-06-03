@@ -333,15 +333,16 @@ window.addEventListener('beforeunload', () => {
 window.addEventListener("keydown", (e) => {
   if (document.activeElement && document.activeElement.tagName === "INPUT") return;
 
-  if (e.metaKey && e.code === "BracketRight") {
+  const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+  if (isCmdOrCtrl && (e.key === "]" || e.code === "BracketRight" || e.key === "】")) {
     e.preventDefault();
     iina.postMessage("setSpeed", { speed: 2.0 });
     return;
-  } else if (e.metaKey && e.code === "BracketLeft") {
+  } else if (isCmdOrCtrl && (e.key === "[" || e.code === "BracketLeft" || e.key === "【")) {
     e.preventDefault();
     iina.postMessage("setSpeed", { speed: 0.5 });
     return;
-  } else if (e.metaKey && e.code === "Backslash") {
+  } else if (isCmdOrCtrl && (e.key === "\\" || e.code === "Backslash" || e.key === "、")) {
     e.preventDefault();
     iina.postMessage("setSpeed", { speed: 1.0 });
     return;
