@@ -93,13 +93,21 @@ function render() {
       }
 
       const loopOn = document.getElementById("loopToggle").checked;
-      if (loopOn) iina.postMessage("loopLine", { enabled: true, start: r.start, end: r.end });
+      if (loopOn) iina.postMessage("loopLine", { enabled: true, start: r.start, end: r.end, text: r.text });
       render();
     });
 
     item.addEventListener("dblclick", (e) => {
       e.stopPropagation();
       copyText(r.text);
+      const lineDiv = item.querySelector(".line");
+      const oldText = lineDiv.innerText;
+      lineDiv.innerText = "[已复制 Copied!] " + oldText;
+      lineDiv.style.color = "#4ade80";
+      setTimeout(() => {
+        lineDiv.innerText = oldText;
+        lineDiv.style.color = "";
+      }, 800);
     });
 
     list.appendChild(item);
@@ -156,8 +164,48 @@ document.getElementById("loopToggle").addEventListener("change", () => {
   if (!on) iina.postMessage("loopLine", { enabled: false });
   else if (currentIdx >= 0) {
     const r = filtered[currentIdx];
-    if (r) iina.postMessage("loopLine", { enabled: true, start: r.start, end: r.end });
+    if (r) iina.postMessage("loopLine", { enabled: true, start: r.start, end: r.end, text: r.text });
   }
+});
+
+let currentUser = "Default User";
+let usersList = ["Default User"];
+
+function updateUserDropdown() {
+  const sel = document.getElementById("userSelect");
+  if (!sel) return;
+  sel.innerHTML = "";
+  usersList.forEach(u => {
+    const op = document.createElement("option");
+    op.value = u;
+    op.textContent = u;
+    sel.appendChild(op);
+  });
+  sel.value = currentUser;
+}
+
+document.getElementById("btnNewUser")?.addEventListener("click", () => {
+  const name = prompt("Enter new user name:");
+  if (name && name.trim()) {
+    const clean = name.trim();
+    if (!usersList.includes(clean)) usersList.push(clean);
+    currentUser = clean;
+    updateUserDropdown();
+    iina.postMessage("statsAction", { action: "switchUser", user: currentUser });
+  }
+});
+
+document.getElementById("userSelect")?.addEventListener("change", (e) => {
+  currentUser = e.target.value;
+  iina.postMessage("statsAction", { action: "switchUser", user: currentUser });
+});
+
+document.getElementById("btnStats")?.addEventListener("click", () => {
+  iina.postMessage("statsAction", { action: "getStats" });
+});
+
+document.getElementById("btnCloseStats")?.addEventListener("click", () => {
+  document.getElementById("statsModal").style.display = "none";
 });
 
 // 手动切换自动滚动开关时的逻辑
@@ -232,6 +280,35 @@ iina.onMessage("liveSubtitle", (data) => {
   liveStart = (typeof data?.start === "number") ? data.start : null;
 });
 
+iina.onMessage("statsData", (data) => {
+  if (data.usersList) usersList = data.usersList;
+  if (data.currentUser) {
+    currentUser = data.currentUser;
+    updateUserDropdown();
+  }
+  if (data.stats) {
+    document.getElementById("statsModal").style.display = "block";
+    let html = `<h3>User: ${currentUser}</h3>`;
+    
+    html += `<h4>Watched Movies</h4><ul>`;
+    const watched = data.stats.watched || {};
+    for (const [k, v] of Object.entries(watched)) {
+      html += `<li>${k}</li>`;
+    }
+    html += `</ul>`;
+    
+    html += `<h4>Looped Sentences</h4><ul>`;
+    const loops = data.stats.loops || {};
+    const sortedLoops = Object.entries(loops).sort((a,b)=>b[1]-a[1]).slice(0, 50);
+    for (const [k, v] of sortedLoops) {
+      html += `<li>[${v}x] ${k}</li>`;
+    }
+    html += `</ul>`;
+    
+    document.getElementById("statsContent").innerHTML = html;
+  }
+});
+
 iina.postMessage("uiReady", {});
 
 window.addEventListener('beforeunload', () => {
@@ -240,6 +317,20 @@ window.addEventListener('beforeunload', () => {
 
 window.addEventListener("keydown", (e) => {
   if (document.activeElement && document.activeElement.tagName === "INPUT") return;
+
+  if (e.metaKey && e.key === "]") {
+    e.preventDefault();
+    iina.postMessage("setSpeed", { speed: 2.0 });
+    return;
+  } else if (e.metaKey && e.key === "[") {
+    e.preventDefault();
+    iina.postMessage("setSpeed", { speed: 0.5 });
+    return;
+  } else if (e.metaKey && e.key === "\\") {
+    e.preventDefault();
+    iina.postMessage("setSpeed", { speed: 1.0 });
+    return;
+  }
 
   if (e.code === "Space") {
     e.preventDefault();

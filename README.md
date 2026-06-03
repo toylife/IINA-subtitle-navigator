@@ -61,8 +61,14 @@ This project is intended to be:
   双击字幕直接复制内容
 - **Keyboard Shortcuts**
   - `Space`: Pause/Play (暂停/播放)
-  - `Up Arrow`: Previous subtitle (上一句字幕并跳转)
-  - `Down Arrow`: Next subtitle (下一句字幕并跳转)
+  - `Up Arrow / Down Arrow`: Previous/Next subtitle (上一句/下一句字幕并跳转)
+  - `Cmd + ]`: Speed up 2.0x (两倍速)
+  - `Cmd + [`: Slow down 0.5x (半速)
+  - `Cmd + \`: Normal speed 1.0x (原速)
+- **User Profiles & Statistics**
+  - Switch users and track independent learning data
+  - Automatically records watched movies
+  - Tracks the number of times each sentence is looped
 - **Jump to time (hh:mm:ss)**  
   适配数小时长视频（支持上下调节输入）
 - **Jump to current subtitle**

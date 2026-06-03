@@ -9,6 +9,14 @@
 <body>
   <div class="toolbar">
     <div class="row">
+      <label class="lbl">User</label>
+      <select id="userSelect">
+        <option value="">Default User</option>
+      </select>
+      <button id="btnNewUser">New</button>
+      <button id="btnStats">Stats</button>
+    </div>
+    <div class="row">
       <label class="lbl">Subtitle</label>
       <select id="track"></select>
     </div>
@@ -48,6 +56,14 @@
 
   <div id="meta" class="meta"></div>
   <div id="list" class="list"></div>
+
+  <!-- Stats Modal -->
+  <div id="statsModal" style="display:none; position:fixed; top:20px; left:20px; right:20px; bottom:20px; background:#fff; color:#000; z-index:999; padding:20px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.5); overflow-y:auto;">
+    <h2>Learning Stats</h2>
+    <div id="statsContent"></div>
+    <br>
+    <button id="btnCloseStats">Close</button>
+  </div>
 
   <script src="window.js"></script>
 </body>

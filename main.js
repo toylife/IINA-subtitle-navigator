@@ -22,8 +22,31 @@ function ensureWindowLoaded() {
   windowLoaded = true;
 }
 
+const STATS_FILE_PATH = "/Users/johnshao/.iina-subtitle-navigator-stats.json";
+let db = { currentUser: "Default User", usersList: ["Default User"], users: { "Default User": { watched: {}, loops: {} } } };
+
+async function loadStats() {
+  try {
+    const raw = await execStdout("/bin/bash", ["-lc", `cat ${shQuote(STATS_FILE_PATH)}`]);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.users) db = parsed;
+    }
+  } catch(_) {}
+}
+
+async function saveStats() {
+  try {
+    const tmp = "@tmp/iina-stats-tmp.json";
+    file.write(tmp, JSON.stringify(db));
+    const realTmp = utils.resolvePath(tmp);
+    await execStdout("/bin/bash", ["-lc", `cp ${shQuote(realTmp)} ${shQuote(STATS_FILE_PATH)}`]);
+  } catch(_) {}
+}
+
 function openWindow() {
   ensureWindowLoaded();
+  loadStats();
   try { standaloneWindow.open(); } catch (e) { log.error(e?.stack || e); }
 }
 
@@ -288,6 +311,14 @@ async function refresh(force=false) {
     cues = parseSubtitle(text);
     rows = cues.map(c => ({ start: c.start, end: c.end, text: c.text }));
     post("setRows", { rows, meta: { count: rows.length } });
+
+    // Track watched movie
+    const vidPath = mpv.getString("path");
+    if (vidPath && db.users[db.currentUser]) {
+      const fname = vidPath.split("/").pop();
+      db.users[db.currentUser].watched[fname] = 1;
+      saveStats();
+    }
   } catch (e) {
     rows = [];
     post("setRows", { rows: [], meta: { error: fmtErr(e) } });
@@ -333,8 +364,16 @@ standaloneWindow.onMessage("togglePause", () => {
   }
 });
 
+standaloneWindow.onMessage("setSpeed", (data) => {
+  const speed = Number(data?.speed);
+  if (Number.isFinite(speed)) {
+    try { mpv.setNative("speed", speed); } catch (_) {}
+  }
+});
+
 standaloneWindow.onMessage("uiReady", () => {
   uiReady = true;
+  post("statsData", { currentUser: db.currentUser, usersList: db.usersList });
   startTicker();
   refresh(true);
 });
@@ -372,7 +411,7 @@ standaloneWindow.onMessage("scrollToCurrent", () => {
   post("scrollToIndex", { idx });
 });
 
-standaloneWindow.onMessage("loopLine", (data) => {
+standaloneWindow.onMessage("loopLine", async (data) => {
   const enabled = Boolean(data?.enabled);
   const start = Number(data?.start);
   const end = Number(data?.end);
@@ -380,9 +419,32 @@ standaloneWindow.onMessage("loopLine", (data) => {
     const d = getSubDelay();
     loop = { enabled: true, start: start + d, end: end + d };
     core.osd("Loop: ON");
+
+    // Track looped sentence
+    if (data.text && db.users[db.currentUser]) {
+      const u = db.currentUser;
+      db.users[u].loops[data.text] = (db.users[u].loops[data.text] || 0) + 1;
+      await saveStats();
+    }
   } else {
     loop = { enabled: false, start: 0, end: 0 };
     core.osd("Loop: OFF");
+  }
+});
+
+standaloneWindow.onMessage("statsAction", async (data) => {
+  if (data.action === "switchUser") {
+    const u = data.user;
+    if (u) {
+      db.currentUser = u;
+      if (!db.usersList.includes(u)) db.usersList.push(u);
+      if (!db.users[u]) db.users[u] = { watched: {}, loops: {} };
+      await saveStats();
+    }
+  } else if (data.action === "getStats") {
+    const u = db.currentUser;
+    const stats = db.users[u] || { watched: {}, loops: {} };
+    post("statsData", { currentUser: db.currentUser, usersList: db.usersList, stats });
   }
 });
 
