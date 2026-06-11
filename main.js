@@ -146,6 +146,10 @@ function parseTimeToSeconds(ts) {
 }
 
 function parseSubtitle(content) {
+	// 新增：如果包含 LRC 典型的时间戳特征，交 给 parseLRC 处理
+  if (/\[\d+:\d{1,2}[.:]\d{2,3}\]/.test(content)) {
+    return parseLRC(content);
+  }
   if (content.includes("[Events]") && content.includes("Dialogue:")) {
     return parseASS(content);
   }
@@ -197,7 +201,53 @@ function parseASS(content) {
   out.sort((a,b)=>a.start-b.start);
   return out;
 }
+// 将 LRC 时间 [mm:ss.xx] 或 [mm:ss.xxx] 转为秒
+function parseLrcTimeToSeconds(ts) {
+  const m = ts.match(/\[(\d+):(\d{1,2})[.:](\d{2,3})\]/);
+  if (!m) return NaN;
+  const mins = Number(m[1]);
+  const secs = Number(m[2]);
+  const msStr = m[3].padEnd(3, "0"); // 补齐三位，兼容 .xx 和 .xxx
+  const ms = Number(msStr);
+  return mins * 60 + secs + ms / 1000;
+}
 
+function parseLRC(content) {
+  const lines = String(content).replace(/\r/g, "").split("\n");
+  const out = [];
+  const tempItems = [];
+
+  for (let line of lines) {
+    const trimmed = line.trim();
+    // 匹配时间戳，例如 [00:12.34] 或 [00:12.345]
+    const timeMatches = trimmed.match(/\[\d+:\d{1,2}[.:]\d{2,3}\]/g);
+    if (!timeMatches) continue;
+
+    // 提取文本：删除所有时间戳后的内容
+    const text = trimmed.replace(/\[\d+:\d{1,2}[.:]\d{2,3}\]/g, "").trim();
+    if (!text) continue;
+
+    for (let ts of timeMatches) {
+      const start = parseLrcTimeToSeconds(ts);
+      if (Number.isFinite(start)) {
+        tempItems.push({ start, text });
+      }
+    }
+  }
+
+  // 按时间排序
+  tempItems.sort((a, b) => a.start - b.start);
+
+  // LRC 通常没有 EndTime，我们将下一行的开始时间作为当前行的结束时间
+  for (let i = 0; i < tempItems.length; i++) {
+    const start = tempItems[i].start;
+    // 最后一行的结束时间设为开始时间 + 5秒，或者设置一个合理的偏移
+    const end = (i < tempItems.length - 1) ? tempItems[i + 1].start : start + 5.0;
+    out.push({ start, end, text: tempItems[i].text });
+  }
+
+  return out;
+}
 function parseSRT(content) {
   const lines = String(content).replace(/\r/g, "").split("\n");
   const out = [];
@@ -304,18 +354,15 @@ async function refresh(force=false) {
         throw new Error("使用 ffmpeg 提取内嵌字幕失败，可能是因为字幕为图片格式或视频路径无效。");
       }
       text = await readTextFromPath(tmpSrt);
-    // } else {
-    //   if (!path.toLowerCase().endsWith(".srt")) throw new Error(`Selected external subtitle is not .srt: ${path}`);
-    //   text = await readSubtitleTextById(trackId, path);
-    // }
     } else {
       const lowerPath = path.toLowerCase();
       const isSrt = lowerPath.endsWith(".srt");
       const isAss = lowerPath.endsWith(".ass") || lowerPath.endsWith(".ssa");
+      const isLrc = lowerPath.endsWith(".lrc"); // 新增：支持 lrc 后缀
 
       // 允许 srt, ass, ssa 格式通过
-      if (!isSrt && !isAss) {
-        throw new Error(`Selected external subtitle is not supported (.srt/.ass/.ssa): ${path}`);
+      if (!isSrt && !isAss && !isLrc) {
+        throw new Error(`Selected external subtitle is not supported (.srt/.ass/.ssa/.lrc): ${path}`);
       }
       text = await readSubtitleTextById(trackId, path);
     }
