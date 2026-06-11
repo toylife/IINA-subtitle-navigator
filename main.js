@@ -304,8 +304,19 @@ async function refresh(force=false) {
         throw new Error("使用 ffmpeg 提取内嵌字幕失败，可能是因为字幕为图片格式或视频路径无效。");
       }
       text = await readTextFromPath(tmpSrt);
+    // } else {
+    //   if (!path.toLowerCase().endsWith(".srt")) throw new Error(`Selected external subtitle is not .srt: ${path}`);
+    //   text = await readSubtitleTextById(trackId, path);
+    // }
     } else {
-      if (!path.toLowerCase().endsWith(".srt")) throw new Error(`Selected external subtitle is not .srt: ${path}`);
+      const lowerPath = path.toLowerCase();
+      const isSrt = lowerPath.endsWith(".srt");
+      const isAss = lowerPath.endsWith(".ass") || lowerPath.endsWith(".ssa");
+
+      // 允许 srt, ass, ssa 格式通过
+      if (!isSrt && !isAss) {
+        throw new Error(`Selected external subtitle is not supported (.srt/.ass/.ssa): ${path}`);
+      }
       text = await readSubtitleTextById(trackId, path);
     }
     cues = parseSubtitle(text);
